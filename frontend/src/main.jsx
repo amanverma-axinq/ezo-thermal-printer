@@ -29,7 +29,7 @@ function textToEscPosBytes(text) {
 
 async function imageToEscPosBytes(imageFile) {
   const init = [0x1b, 0x40]; // ESC @ initialize
-  const feed = [0x0a, 0x0a];
+  const feed = [0x0a, 0x0a, 0x0a];
   const cut = [0x1d, 0x56, 0x41, 0x10];
 
   return new Promise((resolve, reject) => {
@@ -38,7 +38,7 @@ async function imageToEscPosBytes(imageFile) {
       const img = new Image();
       img.onload = () => {
         const printerWidth = 384; // 48mm thermal printer width in pixels (8 dots/mm)
-        const maxHeight = 2048; // reasonable max height for image
+        const maxHeight = 2048;
         
         // Scale image to printer width
         const aspectRatio = img.height / img.width;
@@ -53,13 +53,12 @@ async function imageToEscPosBytes(imageFile) {
         // White background
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
         ctx.drawImage(img, 0, 0, printerWidth, newHeight);
         
         const imageData = ctx.getImageData(0, 0, printerWidth, newHeight);
         const data = imageData.data;
         
-        // Convert to monochrome and build bit image command
+        // Convert to monochrome and build bit image
         const bytesPerRow = Math.ceil(printerWidth / 8);
         const imageBytes = [];
         
@@ -74,7 +73,7 @@ async function imageToEscPosBytes(imageFile) {
                 const g = data[pixelIndex + 1];
                 const b = data[pixelIndex + 2];
                 const gray = (r + g + b) / 3;
-                // Threshold: if darker than 128, set bit to 1
+                // Set bit to 1 if darker than threshold
                 if (gray < 128) {
                   byte |= (0x80 >> bit);
                 }
@@ -84,13 +83,15 @@ async function imageToEscPosBytes(imageFile) {
           }
         }
         
-        // ESC * m nL nH d1...dk - Print bit image
-        const xL = bytesPerRow % 256;
-        const xH = Math.floor(bytesPerRow / 256);
-        const yL = newHeight % 256;
-        const yH = Math.floor(newHeight / 256);
+        // Use GS v 0 command for raster bit image (more reliable)
+        // GS v 0 m xL xH yL yH [image data]
+        const xL = bytesPerRow & 0xFF;
+        const xH = (bytesPerRow >> 8) & 0xFF;
+        const yL = newHeight & 0xFF;
+        const yH = (newHeight >> 8) & 0xFF;
         
-        const printImage = [0x1b, 0x2a, 0x21, xL, xH, yL, yH, ...imageBytes];
+        // Mode 0 = normal, single-density
+        const printImage = [0x1d, 0x76, 0x30, 0x00, xL, xH, yL, yH, ...imageBytes];
         
         const bytes = new Uint8Array([
           ...init,
