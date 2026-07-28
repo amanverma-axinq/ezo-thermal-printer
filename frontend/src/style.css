@@ -8,7 +8,7 @@ h2 { margin: 24px 0 16px; font-size: 18px; border-bottom: 2px solid #e8edf7; pad
 .status { background: #eef4ff; padding: 14px; border-radius: 12px; margin: 18px 0; }
 label { display: block; font-weight: 700; margin-bottom: 8px; }
 textarea { width: 100%; min-height: 260px; resize: vertical; border: 1px solid #cfd7e6; border-radius: 12px; padding: 14px; font-family: monospace; font-size: 15px; }
-.file-input { width: 100%; padding: 12px; border: 2px dashed #cfd7e6; border-radius: 12px; margin-bottom: 16px; cursor: pointer; }
+.file-input { display: block; width: 100%; padding: 12px; border: 2px dashed #cfd7e6; border-radius: 12px; margin-bottom: 16px; cursor: pointer; background: #f9fafb; }
 .file-input:hover { border-color: #172033; }
 .image-preview { margin: 18px 0; padding: 16px; background: #f9fafb; border-radius: 12px; }
 .image-preview img { border-radius: 8px; }
