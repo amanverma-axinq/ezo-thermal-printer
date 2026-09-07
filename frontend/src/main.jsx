@@ -110,37 +110,44 @@ async function imageToEscPosBytes(imageFile) {
   });
 }
 
-async function stripeToEscPosBytes(imageFile) {
+async function logoToEscPosThumbnail(imageFile) {
+  const maxWidth = 200;
+  const maxHeight = 150;
+
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        const stripeHeight = 2048; // Full height
-        const stripeWidth = 60; // Stripe width
+        // Scale image maintaining aspect ratio
+        let width = img.width;
+        let height = img.height;
         
-        // Create canvas for stripe (rotated vertically)
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round(height * (maxWidth / width));
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round(width * (maxHeight / height));
+            height = maxHeight;
+          }
+        }
+        
+        // Create canvas for thumbnail
         const canvas = document.createElement('canvas');
-        canvas.width = 384; // Full printer width
-        canvas.height = stripeHeight;
+        canvas.width = 384;
+        canvas.height = height;
         const ctx = canvas.getContext('2d');
         
+        // White background
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Draw stripe on right side
-        const stripeX = canvas.width - stripeWidth;
-        // Scale and draw image on right side
-        let scaledHeight = img.height;
-        let scaledWidth = img.width;
-        
-        if (scaledHeight > stripeHeight) {
-          scaledWidth = Math.round(scaledWidth * (stripeHeight / scaledHeight));
-          scaledHeight = stripeHeight;
-        }
-        
-        const offsetY = (canvas.height - scaledHeight) / 2;
-        ctx.drawImage(img, stripeX, offsetY, stripeWidth, scaledHeight);
+        // Draw image centered horizontally
+        const offsetX = (canvas.width - width) / 2;
+        ctx.drawImage(img, offsetX, 0, width, height);
         
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
@@ -169,7 +176,7 @@ async function stripeToEscPosBytes(imageFile) {
           }
         }
         
-        // Build ESC/POS raster image command
+        // Build ESC/POS raster image command (GS v 0)
         const xL = bytesPerRow & 0xFF;
         const xH = (bytesPerRow >> 8) & 0xFF;
         const yL = canvas.height & 0xFF;
@@ -179,10 +186,10 @@ async function stripeToEscPosBytes(imageFile) {
         
         resolve(new Uint8Array(printImage));
       };
-      img.onerror = () => reject(new Error('Failed to load stripe'));
+      img.onerror = () => reject(new Error('Failed to load logo'));
       img.src = e.target.result;
     };
-    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.onerror = () => reject(new Error('Failed to read logo file'));
     reader.readAsDataURL(imageFile);
   });
 }
