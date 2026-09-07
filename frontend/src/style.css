@@ -30,5 +30,9 @@ button.primary { background: #172033; color: #fff; }
 .form-group textarea:focus { outline: none; border-color: #172033; background: #f9fafb; }
 .form-group textarea { resize: vertical; font-family: monospace; }
 
+.subsection { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid #e8edf7; }
+.subsection:last-child { border-bottom: none; margin-bottom: 16px; padding-bottom: 0; }
+.subsection h3 { margin-top: 0; }
+
 .bill-preview { background: #f9fafb; border: 1px solid #e8edf7; border-radius: 8px; padding: 16px; margin: 16px 0; }
 .bill-preview pre { margin: 0; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; line-height: 1.4; color: #172033; }

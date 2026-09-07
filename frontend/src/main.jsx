@@ -160,6 +160,8 @@ function App() {
     rate: '',
     volume: '',
   });
+  const [billLogo, setBillLogo] = useState(null);
+  const [billLogoPreview, setBillLogoPreview] = useState(null);
 
   async function fetchReceipt() {
     try {
@@ -303,6 +305,13 @@ Thank You! Visit Again!`;
       if (!billForm.rate || !billForm.volume) throw new Error('Please fill Rate and Volume');
       
       setStatus('Printing bill...');
+      
+      if (billLogo) {
+        const bytes = await imageToEscPosBytes(billLogo);
+        await writeInChunks(characteristic, bytes);
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+      
       const billText = generateBillText();
       const bytes = textToEscPosBytes(billText);
       await writeInChunks(characteristic, bytes);
@@ -310,6 +319,21 @@ Thank You! Visit Again!`;
     } catch (error) {
       setStatus(error.message);
     }
+  }
+
+  function handleBillLogoUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setBillLogo(file);
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setBillLogoPreview(e.target.result);
+    };
+    reader.readAsDataURL(file);
+    
+    setStatus(`Logo selected: ${file.name}`);
   }
 
   return (
@@ -321,21 +345,6 @@ Thank You! Visit Again!`;
         <div className="status">
           <strong>Status:</strong> {status}
           {deviceName && <span> | <strong>Device:</strong> {deviceName}</span>}
-        </div>
-
-        <div className="section">
-          <h2>Text Mode</h2>
-          <label htmlFor="receipt">Receipt Text</label>
-          <textarea
-            id="receipt"
-            value={receiptText}
-            onChange={(event) => setReceiptText(event.target.value)}
-          />
-
-          <div className="actions">
-            <button onClick={fetchReceipt}>Fetch Receipt From Backend</button>
-            <button className="primary" onClick={printReceipt}>Print Receipt</button>
-          </div>
         </div>
 
         <div className="section">
@@ -367,94 +376,121 @@ Thank You! Visit Again!`;
 
         <div className="section">
           <h2>Bill Generator</h2>
-          <div className="form-grid">
-            <div className="form-group">
-              <label htmlFor="companyName">Company Name</label>
-              <input
-                id="companyName"
-                type="text"
-                value={billForm.companyName}
-                onChange={(e) => handleBillFormChange('companyName', e.target.value)}
-                placeholder="e.g., SUTAR PETROLEUM"
-              />
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="location">Location</label>
-              <textarea
-                id="location"
-                value={billForm.location}
-                onChange={(e) => handleBillFormChange('location', e.target.value)}
-                placeholder="e.g., MAAN PHASE-3&#10;PUNE-411057"
-                rows="2"
-              />
-            </div>
+          
+          <div className="subsection">
+            <h3>Logo (Optional)</h3>
+            <label htmlFor="billLogoUpload">Upload Company Logo</label>
+            <input
+              id="billLogoUpload"
+              type="file"
+              accept="image/*"
+              onChange={handleBillLogoUpload}
+              className="file-input"
+            />
 
-            <div className="form-group">
-              <label htmlFor="date">Date</label>
-              <input
-                id="date"
-                type="date"
-                value={billForm.date}
-                onChange={(e) => handleBillFormChange('date', e.target.value)}
-              />
-            </div>
+            {billLogoPreview && (
+              <div className="image-preview">
+                <p>Logo Preview:</p>
+                <img src={billLogoPreview} alt="Logo" style={{ maxWidth: '200px', maxHeight: '150px' }} />
+              </div>
+            )}
 
-            <div className="form-group">
-              <label htmlFor="product">Product</label>
-              <input
-                id="product"
-                type="text"
-                value={billForm.product}
-                onChange={(e) => handleBillFormChange('product', e.target.value)}
-                placeholder="e.g., Product 1"
-              />
-            </div>
+            {billLogo && (
+              <p className="file-name">Logo: {billLogo.name}</p>
+            )}
+          </div>
 
-            <div className="form-group">
-              <label htmlFor="nozzleNo">Nozzle No</label>
-              <input
-                id="nozzleNo"
-                type="text"
-                value={billForm.nozzleNo}
-                onChange={(e) => handleBillFormChange('nozzleNo', e.target.value)}
-                placeholder="e.g., 1"
-              />
-            </div>
+          <div className="subsection">
+            <h3>Bill Details</h3>
+            <div className="form-grid">
+              <div className="form-group">
+                <label htmlFor="companyName">Company Name</label>
+                <input
+                  id="companyName"
+                  type="text"
+                  value={billForm.companyName}
+                  onChange={(e) => handleBillFormChange('companyName', e.target.value)}
+                  placeholder="e.g., SUTAR PETROLEUM"
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="location">Location</label>
+                <textarea
+                  id="location"
+                  value={billForm.location}
+                  onChange={(e) => handleBillFormChange('location', e.target.value)}
+                  placeholder="e.g., MAAN PHASE-3&#10;PUNE-411057"
+                  rows="2"
+                />
+              </div>
 
-            <div className="form-group">
-              <label htmlFor="rate">Rate (INR/Ltr)</label>
-              <input
-                id="rate"
-                type="number"
-                step="0.01"
-                value={billForm.rate}
-                onChange={(e) => handleBillFormChange('rate', e.target.value)}
-                placeholder="e.g., 111.70"
-              />
-            </div>
+              <div className="form-group">
+                <label htmlFor="date">Date</label>
+                <input
+                  id="date"
+                  type="date"
+                  value={billForm.date}
+                  onChange={(e) => handleBillFormChange('date', e.target.value)}
+                />
+              </div>
 
-            <div className="form-group">
-              <label htmlFor="volume">Volume (Ltr)</label>
-              <input
-                id="volume"
-                type="number"
-                step="0.01"
-                value={billForm.volume}
-                onChange={(e) => handleBillFormChange('volume', e.target.value)}
-                placeholder="e.g., 3.49"
-              />
-            </div>
+              <div className="form-group">
+                <label htmlFor="product">Product</label>
+                <input
+                  id="product"
+                  type="text"
+                  value={billForm.product}
+                  onChange={(e) => handleBillFormChange('product', e.target.value)}
+                  placeholder="e.g., Product 1"
+                />
+              </div>
 
-            <div className="form-group">
-              <label htmlFor="amount">Amount (Auto-calculated)</label>
-              <input
-                id="amount"
-                type="text"
-                value={billForm.rate && billForm.volume ? (parseFloat(billForm.rate) * parseFloat(billForm.volume)).toFixed(2) : '0.00'}
-                disabled
-                style={{ backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
-              />
+              <div className="form-group">
+                <label htmlFor="nozzleNo">Nozzle No</label>
+                <input
+                  id="nozzleNo"
+                  type="text"
+                  value={billForm.nozzleNo}
+                  onChange={(e) => handleBillFormChange('nozzleNo', e.target.value)}
+                  placeholder="e.g., 1"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="rate">Rate (INR/Ltr)</label>
+                <input
+                  id="rate"
+                  type="number"
+                  step="0.01"
+                  value={billForm.rate}
+                  onChange={(e) => handleBillFormChange('rate', e.target.value)}
+                  placeholder="e.g., 111.70"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="volume">Volume (Ltr)</label>
+                <input
+                  id="volume"
+                  type="number"
+                  step="0.01"
+                  value={billForm.volume}
+                  onChange={(e) => handleBillFormChange('volume', e.target.value)}
+                  placeholder="e.g., 3.49"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="amount">Amount (Auto-calculated)</label>
+                <input
+                  id="amount"
+                  type="text"
+                  value={billForm.rate && billForm.volume ? (parseFloat(billForm.rate) * parseFloat(billForm.volume)).toFixed(2) : '0.00'}
+                  disabled
+                  style={{ backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
+                />
+              </div>
             </div>
           </div>
 
