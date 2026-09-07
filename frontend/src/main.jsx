@@ -110,6 +110,90 @@ async function imageToEscPosBytes(imageFile) {
   });
 }
 
+async function logoToEscPosThumbnail(imageFile) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxWidth = 200; // Thumbnail width for logo
+        const maxHeight = 150;
+        
+        // Scale image maintaining aspect ratio
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round(height * (maxWidth / width));
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round(width * (maxHeight / height));
+            height = maxHeight;
+          }
+        }
+        
+        // Create canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = 384; // Printer width
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        
+        // White background
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw image centered horizontally
+        const offsetX = (canvas.width - width) / 2;
+        ctx.drawImage(img, offsetX, 0, width, height);
+        
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        
+        // Convert to monochrome
+        const bytesPerRow = Math.ceil(384 / 8);
+        const imageBytes = [];
+        
+        for (let y = 0; y < canvas.height; y++) {
+          for (let x = 0; x < bytesPerRow; x++) {
+            let byte = 0;
+            for (let bit = 0; bit < 8; bit++) {
+              const pixelX = x * 8 + bit;
+              if (pixelX < 384) {
+                const pixelIndex = (y * 384 + pixelX) * 4;
+                const r = data[pixelIndex];
+                const g = data[pixelIndex + 1];
+                const b = data[pixelIndex + 2];
+                const gray = (r + g + b) / 3;
+                if (gray < 128) {
+                  byte |= (0x80 >> bit);
+                }
+              }
+            }
+            imageBytes.push(byte);
+          }
+        }
+        
+        // Build ESC/POS raster image command
+        const xL = bytesPerRow & 0xFF;
+        const xH = (bytesPerRow >> 8) & 0xFF;
+        const yL = canvas.height & 0xFF;
+        const yH = (canvas.height >> 8) & 0xFF;
+        
+        const printImage = [0x1d, 0x76, 0x30, 0x00, xL, xH, yL, yH, ...imageBytes];
+        
+        resolve(new Uint8Array(printImage));
+      };
+      img.onerror = () => reject(new Error('Failed to load logo'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(imageFile);
+  });
+}
+
 async function writeInChunks(characteristic, bytes, chunkSize = 180) {
   for (let i = 0; i < bytes.length; i += chunkSize) {
     const chunk = bytes.slice(i, i + chunkSize);
@@ -304,17 +388,38 @@ Thank You! Visit Again!`;
       if (!characteristic) throw new Error('Please connect printer first');
       if (!billForm.rate || !billForm.volume) throw new Error('Please fill Rate and Volume');
       
-      setStatus('Printing bill...');
+      setStatus('Preparing bill...');
       
+      const init = [0x1b, 0x40]; // ESC @ initialize
+      const alignCenter = [0x1b, 0x61, 0x01];
+      const alignLeft = [0x1b, 0x61, 0x00];
+      const feed = [0x0a];
+      const cut = [0x1d, 0x56, 0x41, 0x10];
+      
+      let allBytes = [...init, ...alignCenter];
+      
+      // Print logo thumbnail if available
       if (billLogo) {
-        const bytes = await imageToEscPosBytes(billLogo);
-        await writeInChunks(characteristic, bytes);
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        setStatus('Converting logo...');
+        const logoBytes = await logoToEscPosThumbnail(billLogo);
+        allBytes.push(...Array.from(logoBytes));
+        allBytes.push(...feed);
+        allBytes.push(...feed);
       }
       
+      allBytes.push(...alignLeft);
+      
+      // Print bill text
       const billText = generateBillText();
-      const bytes = textToEscPosBytes(billText);
-      await writeInChunks(characteristic, bytes);
+      const billTextBytes = encoder.encode(billText + '\n');
+      allBytes.push(...billTextBytes);
+      
+      allBytes.push(...feed);
+      allBytes.push(...feed);
+      allBytes.push(...cut);
+      
+      setStatus('Printing bill...');
+      await writeInChunks(characteristic, new Uint8Array(allBytes));
       setStatus('Bill printed successfully');
     } catch (error) {
       setStatus(error.message);
