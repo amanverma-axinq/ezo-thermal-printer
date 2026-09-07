@@ -110,44 +110,37 @@ async function imageToEscPosBytes(imageFile) {
   });
 }
 
-async function logoToEscPosThumbnail(imageFile) {
+async function stripeToEscPosBytes(imageFile) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        const maxWidth = 200; // Thumbnail width for logo
-        const maxHeight = 150;
+        const stripeHeight = 2048; // Full height
+        const stripeWidth = 60; // Stripe width
         
-        // Scale image maintaining aspect ratio
-        let width = img.width;
-        let height = img.height;
-        
-        if (width > height) {
-          if (width > maxWidth) {
-            height = Math.round(height * (maxWidth / width));
-            width = maxWidth;
-          }
-        } else {
-          if (height > maxHeight) {
-            width = Math.round(width * (maxHeight / height));
-            height = maxHeight;
-          }
-        }
-        
-        // Create canvas
+        // Create canvas for stripe (rotated vertically)
         const canvas = document.createElement('canvas');
-        canvas.width = 384; // Printer width
-        canvas.height = height;
+        canvas.width = 384; // Full printer width
+        canvas.height = stripeHeight;
         const ctx = canvas.getContext('2d');
         
-        // White background
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Draw image centered horizontally
-        const offsetX = (canvas.width - width) / 2;
-        ctx.drawImage(img, offsetX, 0, width, height);
+        // Draw stripe on right side
+        const stripeX = canvas.width - stripeWidth;
+        // Scale and draw image on right side
+        let scaledHeight = img.height;
+        let scaledWidth = img.width;
+        
+        if (scaledHeight > stripeHeight) {
+          scaledWidth = Math.round(scaledWidth * (stripeHeight / scaledHeight));
+          scaledHeight = stripeHeight;
+        }
+        
+        const offsetY = (canvas.height - scaledHeight) / 2;
+        ctx.drawImage(img, stripeX, offsetY, stripeWidth, scaledHeight);
         
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
@@ -186,7 +179,7 @@ async function logoToEscPosThumbnail(imageFile) {
         
         resolve(new Uint8Array(printImage));
       };
-      img.onerror = () => reject(new Error('Failed to load logo'));
+      img.onerror = () => reject(new Error('Failed to load stripe'));
       img.src = e.target.result;
     };
     reader.onerror = () => reject(new Error('Failed to read file'));
@@ -246,6 +239,8 @@ function App() {
   });
   const [billLogo, setBillLogo] = useState(null);
   const [billLogoPreview, setBillLogoPreview] = useState(null);
+  const [billStripe, setBillStripe] = useState(null);
+  const [billStripePreview, setBillStripePreview] = useState(null);
 
   async function fetchReceipt() {
     try {
@@ -363,12 +358,12 @@ function App() {
 ${billForm.location}
 
 COPY / DUPLICATE
-${'x'.repeat(32)}
+${'-'.repeat(32)}
 ${dateStr}         ${timeStr}
 TXN NO: N.A.
 INVOICE #: 12345
 
-${'x'.repeat(32)}
+${'-'.repeat(32)}
 NOZZLE_NO : ${billForm.nozzleNo}
 PRODUCT: ${billForm.product}
 DENSITY: 751.9 kg/m3
@@ -441,6 +436,21 @@ Thank You! Visit Again!`;
     setStatus(`Logo selected: ${file.name}`);
   }
 
+  function handleBillStripeUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setBillStripe(file);
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setBillStripePreview(e.target.result);
+    };
+    reader.readAsDataURL(file);
+    
+    setStatus(`Stripe selected: ${file.name}`);
+  }
+
   return (
     <main className="page">
       <section className="card">
@@ -450,6 +460,13 @@ Thank You! Visit Again!`;
         <div className="status">
           <strong>Status:</strong> {status}
           {deviceName && <span> | <strong>Device:</strong> {deviceName}</span>}
+        </div>
+
+        <div className="section">
+          <h2>Printer Connection</h2>
+          <div className="actions">
+            <button onClick={connectPrinter}>Connect Bluetooth Printer</button>
+          </div>
         </div>
 
         <div className="section">
@@ -606,13 +623,6 @@ Thank You! Visit Again!`;
 
           <div className="actions">
             <button className="primary" onClick={printBill}>Print Bill</button>
-          </div>
-        </div>
-
-        <div className="section">
-          <h2>Printer Connection</h2>
-          <div className="actions">
-            <button onClick={connectPrinter}>Connect Bluetooth Printer</button>
           </div>
         </div>
 
