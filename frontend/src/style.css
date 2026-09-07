@@ -4,6 +4,7 @@ body { margin: 0; font-family: Arial, sans-serif; background: #f5f7fb; color: #1
 .card { width: 100%; max-width: 820px; background: #fff; border-radius: 18px; padding: 28px; box-shadow: 0 20px 60px rgba(15, 23, 42, 0.12); }
 h1 { margin: 0 0 8px; font-size: 32px; }
 h2 { margin: 24px 0 16px; font-size: 18px; border-bottom: 2px solid #e8edf7; padding-bottom: 8px; }
+h3 { margin: 16px 0 12px; font-size: 16px; }
 .subtitle { margin-top: 0; color: #5b6475; }
 .status { background: #eef4ff; padding: 14px; border-radius: 12px; margin: 18px 0; }
 label { display: block; font-weight: 700; margin-bottom: 8px; }
@@ -20,3 +21,14 @@ button:hover { filter: brightness(0.97); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 button.primary { background: #172033; color: #fff; }
 .note { margin-top: 18px; color: #697386; font-size: 14px; }
+
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.form-group { display: flex; flex-direction: column; }
+.form-group input,
+.form-group textarea { border: 1px solid #cfd7e6; border-radius: 8px; padding: 10px; font-size: 14px; font-family: Arial, sans-serif; }
+.form-group input:focus,
+.form-group textarea:focus { outline: none; border-color: #172033; background: #f9fafb; }
+.form-group textarea { resize: vertical; font-family: monospace; }
+
+.bill-preview { background: #f9fafb; border: 1px solid #e8edf7; border-radius: 8px; padding: 16px; margin: 16px 0; }
+.bill-preview pre { margin: 0; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; line-height: 1.4; color: #172033; }

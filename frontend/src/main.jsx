@@ -149,6 +149,17 @@ function App() {
   const [receiptText, setReceiptText] = useState(`FRANZZO / AXINQ TEST RECEIPT\n--------------------------------\nItem: Chicken Biryani\nQty : 1\nRate: 130\nTotal: Rs. 130\n--------------------------------\nThank you!`);
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  
+  // Bill form state
+  const [billForm, setBillForm] = useState({
+    companyName: 'SUTAR PETROLEUM',
+    location: 'MAAN PHASE-3\nPUNE-411057',
+    date: new Date().toISOString().split('T')[0],
+    product: 'Product 1',
+    nozzleNo: '1',
+    rate: '',
+    volume: '',
+  });
 
   async function fetchReceipt() {
     try {
@@ -244,6 +255,63 @@ function App() {
     }
   }
 
+  function generateBillText() {
+    const rate = parseFloat(billForm.rate) || 0;
+    const volume = parseFloat(billForm.volume) || 0;
+    const amount = (rate * volume).toFixed(2);
+
+    const dateObj = new Date(billForm.date + 'T00:00:00');
+    const timeStr = dateObj.toLocaleTimeString('en-IN', { 
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+    const dateStr = dateObj.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    }).toUpperCase();
+
+    return `${billForm.companyName}
+${billForm.location}
+
+COPY / DUPLICATE
+${'x'.repeat(32)}
+${dateStr}         ${timeStr}
+TXN NO: N.A.
+INVOICE #: 12345
+
+${'x'.repeat(32)}
+NOZZLE_NO : ${billForm.nozzleNo}
+PRODUCT: ${billForm.product}
+DENSITY: 751.9 kg/m3
+RATE    : ${parseFloat(billForm.rate).toFixed(2)} INR/Ltr
+VOLUME  : ${parseFloat(billForm.volume).toFixed(2)} Ltr
+AMOUNT  : ${amount} INR
+
+Thank You! Visit Again!`;
+  }
+
+  function handleBillFormChange(field, value) {
+    setBillForm(prev => ({ ...prev, [field]: value }));
+  }
+
+  async function printBill() {
+    try {
+      if (!characteristic) throw new Error('Please connect printer first');
+      if (!billForm.rate || !billForm.volume) throw new Error('Please fill Rate and Volume');
+      
+      setStatus('Printing bill...');
+      const billText = generateBillText();
+      const bytes = textToEscPosBytes(billText);
+      await writeInChunks(characteristic, bytes);
+      setStatus('Bill printed successfully');
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }
+
   return (
     <main className="page">
       <section className="card">
@@ -294,6 +362,109 @@ function App() {
 
           <div className="actions">
             <button className="primary" onClick={printImage} disabled={!selectedImage}>Print Image</button>
+          </div>
+        </div>
+
+        <div className="section">
+          <h2>Bill Generator</h2>
+          <div className="form-grid">
+            <div className="form-group">
+              <label htmlFor="companyName">Company Name</label>
+              <input
+                id="companyName"
+                type="text"
+                value={billForm.companyName}
+                onChange={(e) => handleBillFormChange('companyName', e.target.value)}
+                placeholder="e.g., SUTAR PETROLEUM"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="location">Location</label>
+              <textarea
+                id="location"
+                value={billForm.location}
+                onChange={(e) => handleBillFormChange('location', e.target.value)}
+                placeholder="e.g., MAAN PHASE-3&#10;PUNE-411057"
+                rows="2"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="date">Date</label>
+              <input
+                id="date"
+                type="date"
+                value={billForm.date}
+                onChange={(e) => handleBillFormChange('date', e.target.value)}
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="product">Product</label>
+              <input
+                id="product"
+                type="text"
+                value={billForm.product}
+                onChange={(e) => handleBillFormChange('product', e.target.value)}
+                placeholder="e.g., Product 1"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="nozzleNo">Nozzle No</label>
+              <input
+                id="nozzleNo"
+                type="text"
+                value={billForm.nozzleNo}
+                onChange={(e) => handleBillFormChange('nozzleNo', e.target.value)}
+                placeholder="e.g., 1"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="rate">Rate (INR/Ltr)</label>
+              <input
+                id="rate"
+                type="number"
+                step="0.01"
+                value={billForm.rate}
+                onChange={(e) => handleBillFormChange('rate', e.target.value)}
+                placeholder="e.g., 111.70"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="volume">Volume (Ltr)</label>
+              <input
+                id="volume"
+                type="number"
+                step="0.01"
+                value={billForm.volume}
+                onChange={(e) => handleBillFormChange('volume', e.target.value)}
+                placeholder="e.g., 3.49"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="amount">Amount (Auto-calculated)</label>
+              <input
+                id="amount"
+                type="text"
+                value={billForm.rate && billForm.volume ? (parseFloat(billForm.rate) * parseFloat(billForm.volume)).toFixed(2) : '0.00'}
+                disabled
+                style={{ backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
+              />
+            </div>
+          </div>
+
+          <div className="bill-preview">
+            <h3>Preview:</h3>
+            <pre>{generateBillText()}</pre>
+          </div>
+
+          <div className="actions">
+            <button className="primary" onClick={printBill}>Print Bill</button>
           </div>
         </div>
 
